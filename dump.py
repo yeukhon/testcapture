@@ -30,10 +30,6 @@ def add(node):
                 ],
             keywords=[], starargs=None, kwargs=None),
         ], nl=True)
-    ast.copy_location(new_node, node)
-    ast.increment_lineno(node)
-    ast.fix_missing_locations(new_node)
-    ast.fix_missing_locations(node)
     return new_node
 
 class Tracker(ast.NodeTransformer):
@@ -54,15 +50,23 @@ class Tracker(ast.NodeTransformer):
             body = node.body
 
             new_stmts = []
-            for node in node.body:
-                new_stmts.append(createNode(node))
+            for _node in node.body:
+                new_stmts.append(createNode(_node))
             new_node_body = []
             for i in xrange(0, len(new_stmts)):
-                if new_stmts[i]:
-                    new_node_body.append(new_stmts[i])
-                new_node_body.append(body[i])
+                new_node = new_stmts[i]
+                old_node = body[i]
+                if new_node:
+                    new_node_body.append(new_node)
+                    ast.copy_location(new_node, old_node)
+                    ast.increment_lineno(old_node)
+                    ast.fix_missing_locations(new_node)
+                    ast.fix_missing_locations(old_node)
+                new_node_body.append(old_node)
             node.body = new_node_body
+            ast.fix_missing_locations(node)
             return node
+
         ast.fix_missing_locations(node)
         return node
 
