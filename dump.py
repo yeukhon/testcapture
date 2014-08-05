@@ -13,12 +13,31 @@ nodes = ast.parse(code)
 def createNode(node):
     if isinstance(node, ast.Assign):
         if isinstance(node.targets[0], ast.Name):
-            new_node = add(node.targets[0])
+            new_node = add_for_name(node.targets[0])
+            return new_node
+        elif isinstance(node.targets[0], ast.Subscript):
+            new_node = add_for_subscript(node.targets[0])
             return new_node
 
-def add(node):
+def add_for_name(node):
     id_name = None
     id_name = node.id
+    new_node = ast.Print(dest=None,
+        values=[
+            ast.Call(func=ast.Attribute(
+                value=ast.Str(s='reading {} value: {}'),
+                attr='format', ctx=ast.Load()),
+                args=[
+                    ast.Str(s=id_name),
+                    node
+                ],
+            keywords=[], starargs=None, kwargs=None),
+        ], nl=True)
+    return new_node
+
+def add_for_subscript(node):
+    id_name = None
+    id_name = node.value.id
     new_node = ast.Print(dest=None,
         values=[
             ast.Call(func=ast.Attribute(
