@@ -7,8 +7,8 @@ class TestSample(unittest.TestCase):
 
     def test_a_is_1(self):
         a = 1
-        print "{} hello {}".format(a, self.a)
-        print("do some hard work before assertion")
+#        print "{} hello {}".format(a, self.a)
+#        print("do some hard work before assertion")
         self.assertEqual(self.a, 1)
         b[49] = self.a
         self.assertEqual(self.a, a)
