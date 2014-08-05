@@ -21,6 +21,29 @@ def createNode(node):
         elif isinstance(node.targets[0], ast.Subscript):
             new_node = add_for_subscript(node.targets[0])
             return new_node
+    elif isinstance(node, ast.Expr):
+        if isinstance(node.value, ast.Call):
+            new_node = add_for_call(node.value)
+            return new_node
+
+def add_for_call(node):
+    id_name = None
+    if isinstance(node.func, ast.Attribute):
+        id_name = node.func.value.id + "." + node.func.attr
+    else:
+        id_name = node.func.id
+    new_node = ast.Print(dest=None,
+        values=[
+            ast.Call(func=ast.Attribute(
+                value=ast.Str(s='reading {} value: {}'),
+                attr='format', ctx=ast.Load()),
+                args=[
+                    ast.Str(s=id_name),
+                    node
+                ],
+            keywords=[], starargs=None, kwargs=None),
+        ], nl=True)
+    return new_node
 
 def add_for_name(node):
     id_name = None
