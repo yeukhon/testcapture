@@ -26,21 +26,44 @@ def createNode(node):
             new_node = add_for_call(node.value)
             return new_node
 
+def z_merge(L1, L2):
+    for i in range(len(L1)):
+        b = L2[i]
+        yield L1[i]
+        yield b#L2[i]
+
+def get_args_names(args):
+    names = []
+    name = None
+    for arg in args:
+        if isinstance(arg, ast.Attribute):
+            name = arg.value.id + "." + arg.attr
+        else:
+            name = arg.id
+        names.append(name)
+    return names
+
 def add_for_call(node):
     id_name = None
+    args = node.args
     if isinstance(node.func, ast.Attribute):
         id_name = node.func.value.id + "." + node.func.attr
     else:
         id_name = node.func.id
+
+    arg_names = get_args_names(args)
+    print arg_names
+    r_str_list = ["reading {} value:"] + ["{} : {}" for x in arg_names]
+    r_str = "".join(r_str_list)
+    r_args = [ast.Str(s=id_name)]
+    for x in z_merge(arg_names, args):
+        r_args.append(x)
     new_node = ast.Print(dest=None,
         values=[
             ast.Call(func=ast.Attribute(
-                value=ast.Str(s='reading {} value: {}'),
+                value=ast.Str(s=r_str),
                 attr='format', ctx=ast.Load()),
-                args=[
-                    ast.Str(s=id_name),
-                    node
-                ],
+                args=r_args,
             keywords=[], starargs=None, kwargs=None),
         ], nl=True)
     return new_node
@@ -159,7 +182,16 @@ class Tracker(ast.NodeTransformer):
     """
 a = Tracker()
 new_code = a.visit(nodes)
+#pretty.parseprint(new_code)
 
+class T(ast.NodeTransformer):
+    def visit_FuncDef(self, node):
+        for n in node.body:
+            ast.fix_missing_locations(n)
+        return node
+c  = T().visit(new_code)
+compile(c, 'a.py', 'exec')
+"""
 code = compile(new_code, 'new.py','exec')
 pretty.parseprint(new_code)
 import unparser
@@ -167,3 +199,4 @@ import sys
 unparser.Unparser(new_code, sys.stdout)
 print "\n"
 #exec(code)
+"""
