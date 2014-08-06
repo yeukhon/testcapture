@@ -28,9 +28,7 @@ def createNode(node):
 
 def z_merge(L1, L2):
     for i in range(len(L1)):
-        b = L2[i]
-        yield L1[i]
-        yield b#L2[i]
+        yield L1[i], L2[i]
 
 def get_args_names(args):
     names = []
@@ -43,6 +41,9 @@ def get_args_names(args):
         names.append(name)
     return names
 
+def make_str(s):
+    return ast.Str(s=s)
+
 def add_for_call(node):
     id_name = None
     args = node.args
@@ -53,11 +54,14 @@ def add_for_call(node):
 
     arg_names = get_args_names(args)
     print arg_names
-    r_str_list = ["reading {} value:"] + ["{} : {}" for x in arg_names]
-    r_str = "".join(r_str_list)
-    r_args = [ast.Str(s=id_name)]
-    for x in z_merge(arg_names, args):
-        r_args.append(x)
+    
+    r_str_list = ["reading {} values:"] + ["{}: {}" for x in arg_names]
+    r_str = "\n".join(r_str_list)
+    r_args = [make_str(id_name)]
+    for (x,y) in z_merge(arg_names, args):
+        r_args.append(make_str(x))
+        r_args.append(y)
+
     new_node = ast.Print(dest=None,
         values=[
             ast.Call(func=ast.Attribute(
@@ -190,13 +194,9 @@ class T(ast.NodeTransformer):
             ast.fix_missing_locations(n)
         return node
 c  = T().visit(new_code)
-compile(c, 'a.py', 'exec')
-"""
 code = compile(new_code, 'new.py','exec')
 pretty.parseprint(new_code)
 import unparser
 import sys
 unparser.Unparser(new_code, sys.stdout)
 print "\n"
-#exec(code)
-"""

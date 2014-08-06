@@ -1,19 +1,16 @@
 import unittest
 
-def foo():
+def foo(arg1, arg2):
     pass
 
+A = "this is A"
 b = {'key': 'None'}
 class TestSample(unittest.TestCase):
     def setUp(self):
-        self.a = 1
+        self.a = "this is self.a"
 
     def test_a_is_1(self):
-        a = 1
-        foo()
-        self.assertEqual(self.a, a)
-        self.a = 1
-        b['key'] = 'hello'
+        foo(A, self.a)
 #        print "{} hello {}".format(a, self.a)
 #        print("do some hard work before assertion")
 
