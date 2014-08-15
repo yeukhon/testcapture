@@ -5,14 +5,18 @@ def foo(arg1, arg2):
 
 A = "this is A"
 b = {'key': 'None'}
+
+def monitor_on(fname, lineno, variable_name, variable):
+    print("{}:{}@{} > {}".format(fname, variable_name,
+        lineno, variable))
+
 class TestSample(unittest.TestCase):
     def setUp(self):
         self.a = "this is self.a"
 
     def test_a_is_1(self):
-        foo(A, self.a)
-#        print "{} hello {}".format(a, self.a)
-#        print("do some hard work before assertion")
+        A = "this is new A"
+        print("last statement")
 
 #if __name__ == '__main__':
 #    unittest.main()

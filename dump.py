@@ -2,19 +2,51 @@ import ast
 import inspect
 import unittest
 import pretty
+import itertools
 
 import new
 
+Monitor = {}
 code = inspect.getsource(new)
 nodes = ast.parse(code)
 
-#pretty.parseprint(nodes)
+def monitor_on(fname, lineno, var_name, var_obj):
+    var_dict = {}
+    for name, value in pairwise(variables):
+        var_dict[name] = value
+    if not Monitor.get(fname):
+        Monitor[fname] = {}
+    if not Monitor[fname].get(lineno):
+        Monitor[fname][lineno] = {}
+    Monitor[fname][lineno][var_name] = var_obj
 
-def createNode(node):
+def monitor_node(fname, lineno, var_name, var_obj):
+    code = """\
+try:
+    monitor_on({}, {}, {}, {})
+except (IndexError, KeyError, AttributeError, UnboundLocalError):
+    monitor_on({}, {}, {}, "__undefined__")
+    """
+
+    nodes = ast.parse(code)
+    pretty.parseprint(nodes)
+    first_args = [ make_str(x) for x in
+        [fname, lineno, var_name]]
+    first_args += [var_obj]
+
+    second_args = [ make_str(x) for x in
+        [fname, lineno, var_name, "__unefined__"] ]
+    nodes.body[0].body[0].value.args = first_args
+    nodes.body[0].handlers[0].body[0].value.args = second_args
+    print nodes.body[0].body[-1].value.args
+    return nodes.body[0]
+
+def createNode(fname, node):
     if isinstance(node, ast.Assign):
         if isinstance(node.targets[0], ast.Name):
-            new_node = add_for_name(node.targets[0])
+            new_node = add_for_name(fname, node.targets[0])
             return new_node
+        """
         elif isinstance(node.targets[0], ast.Attribute):
             new_node = add_for_attribute(node.targets[0])
             return new_node
@@ -25,6 +57,7 @@ def createNode(node):
         if isinstance(node.value, ast.Call):
             new_node = add_for_call(node.value)
             return new_node
+        """
 
 def z_merge(L1, L2):
     for i in range(len(L1)):
@@ -53,7 +86,6 @@ def add_for_call(node):
         id_name = node.func.id
 
     arg_names = get_args_names(args)
-    print arg_names
     
     r_str_list = ["reading {} values:"] + ["{}: {}" for x in arg_names]
     r_str = "\n".join(r_str_list)
@@ -72,9 +104,11 @@ def add_for_call(node):
         ], nl=True)
     return new_node
 
-def add_for_name(node):
+def add_for_name(fname, node):
     id_name = None
     id_name = node.id
+    new_node = monitor_node(fname, node.lineno, id_name, node)
+    """
     new_node = ast.Print(dest=None,
         values=[
             ast.Call(func=ast.Attribute(
@@ -86,6 +120,7 @@ def add_for_name(node):
                 ],
             keywords=[], starargs=None, kwargs=None),
         ], nl=True)
+    """
     return new_node
 
 def add_for_attribute(node):
@@ -139,18 +174,16 @@ class Tracker(ast.NodeTransformer):
 
             new_stmts = []
             for _node in node.body:
-                new_stmts.append(createNode(_node))
+                new_stmts.append(createNode(node.name, _node))
             new_node_body = []
             for i in xrange(0, len(new_stmts)):
                 new_node = new_stmts[i]
                 old_node = body[i]
                 if new_node:
-                    new_node_body.append(new_node)
                     ast.copy_location(new_node, old_node)
-                    ast.increment_lineno(old_node)
-                    ast.fix_missing_locations(new_node)
-                    ast.fix_missing_locations(old_node)
-                new_node_body.append(old_node)
+                    new_node_body.append(new_node)
+                    new_node_body.append(old_node)
+            new_node_body.append(old_node)
             node.body = new_node_body
             ast.fix_missing_locations(node)
             return node
