@@ -15,7 +15,14 @@ class TestSample(unittest.TestCase):
         self.a = "this is self.a"
 
     def test_a_is_1(self):
-        A = "this is new A"
+        print("before variable A")
+        A = "this is new local A"
+        print("--- before self.a")
+        self.a = "this is new self.a"
+        print("--- before subscript assignment")
+        b["key"] = "new key"
+        print("before assertEqual")
+        self.assertEqual(b["key"], "new key")
         print("last statement")
 
 #if __name__ == '__main__':

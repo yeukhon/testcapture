@@ -38,7 +38,6 @@ except (IndexError, KeyError, AttributeError, UnboundLocalError):
         [fname, lineno, var_name, "__unefined__"] ]
     nodes.body[0].body[0].value.args = first_args
     nodes.body[0].handlers[0].body[0].value.args = second_args
-    print nodes.body[0].body[-1].value.args
     return nodes.body[0]
 
 def createNode(fname, node):
@@ -46,22 +45,32 @@ def createNode(fname, node):
         if isinstance(node.targets[0], ast.Name):
             new_node = add_for_name(fname, node.targets[0])
             return new_node
-        """
         elif isinstance(node.targets[0], ast.Attribute):
-            new_node = add_for_attribute(node.targets[0])
+            new_node = add_for_attribute(fname, node.targets[0])
             return new_node
         elif isinstance(node.targets[0], ast.Subscript):
-            new_node = add_for_subscript(node.targets[0])
+            new_node = add_for_subscript(fname, node.targets[0])
             return new_node
     elif isinstance(node, ast.Expr):
         if isinstance(node.value, ast.Call):
-            new_node = add_for_call(node.value)
+            new_node = add_for_call(fname, node.value)
             return new_node
-        """
+    else:
+        return node
 
 def z_merge(L1, L2):
     for i in range(len(L1)):
         yield L1[i], L2[i]
+
+def get_arg_name(arg):
+    if isinstance(arg, ast.Attribute):
+        return arg.value.id + "." + arg.attr
+    elif isinstance(arg, ast.Subscript):
+        return arg.value.id + "[" + arg.slice.value.s + "]"
+    elif isinstance(arg, ast.Str):
+        return arg.s
+    else:
+        return arg.id
 
 def get_args_names(args):
     names = []
@@ -77,7 +86,7 @@ def get_args_names(args):
 def make_str(s):
     return ast.Str(s=s)
 
-def add_for_call(node):
+def add_for_call(fname, node):
     id_name = None
     args = node.args
     if isinstance(node.func, ast.Attribute):
@@ -85,74 +94,29 @@ def add_for_call(node):
     else:
         id_name = node.func.id
 
-    arg_names = get_args_names(args)
-    
-    r_str_list = ["reading {} values:"] + ["{}: {}" for x in arg_names]
-    r_str = "\n".join(r_str_list)
-    r_args = [make_str(id_name)]
-    for (x,y) in z_merge(arg_names, args):
-        r_args.append(make_str(x))
-        r_args.append(y)
+    new_nodes = [
+        monitor_node(fname, get_arg_name(arg),
+            arg.lineno, arg) for arg in node.args
+    ]
 
-    new_node = ast.Print(dest=None,
-        values=[
-            ast.Call(func=ast.Attribute(
-                value=ast.Str(s=r_str),
-                attr='format', ctx=ast.Load()),
-                args=r_args,
-            keywords=[], starargs=None, kwargs=None),
-        ], nl=True)
-    return new_node
+    return new_nodes
 
 def add_for_name(fname, node):
     id_name = None
     id_name = node.id
     new_node = monitor_node(fname, node.lineno, id_name, node)
-    """
-    new_node = ast.Print(dest=None,
-        values=[
-            ast.Call(func=ast.Attribute(
-                value=ast.Str(s='reading {} value: {}'),
-                attr='format', ctx=ast.Load()),
-                args=[
-                    ast.Str(s=id_name),
-                    node
-                ],
-            keywords=[], starargs=None, kwargs=None),
-        ], nl=True)
-    """
     return new_node
 
-def add_for_attribute(node):
+def add_for_attribute(fname, node):
     id_name = None
     id_name = node.value.id + '.' + node.attr
-    new_node = ast.Print(dest=None,
-        values=[
-            ast.Call(func=ast.Attribute(
-                value=ast.Str(s='reading {} value: {}'),
-                attr='format', ctx=ast.Load()),
-                args=[
-                    ast.Str(s=id_name),
-                    node
-                ],
-            keywords=[], starargs=None, kwargs=None),
-        ], nl=True)
+    new_node = monitor_node(fname, node.lineno, id_name, node)
     return new_node
 
-def add_for_subscript(node):
+def add_for_subscript(fname, node):
     id_name = None
     id_name = node.value.id
-    new_node = ast.Print(dest=None,
-        values=[
-            ast.Call(func=ast.Attribute(
-                value=ast.Str(s='reading {} value: {}'),
-                attr='format', ctx=ast.Load()),
-                args=[
-                    ast.Str(s=id_name),
-                    node
-                ],
-            keywords=[], starargs=None, kwargs=None),
-        ], nl=True)
+    new_node = monitor_node(fname, node.lineno, id_name, node)
     return new_node
 
 class Tracker(ast.NodeTransformer):
@@ -179,11 +143,17 @@ class Tracker(ast.NodeTransformer):
             for i in xrange(0, len(new_stmts)):
                 new_node = new_stmts[i]
                 old_node = body[i]
-                if new_node:
+                if isinstance(new_node, list):
+                    for _new_node in new_node:
+                        ast.copy_location(_new_node, old_node)
+                        new_node_body.append(_new_node)
+                    new_node_body.append(old_node)
+                elif isinstance(new_node, ast.TryExcept):
                     ast.copy_location(new_node, old_node)
                     new_node_body.append(new_node)
                     new_node_body.append(old_node)
-            new_node_body.append(old_node)
+                else:
+                    new_node_body.append(new_node)
             node.body = new_node_body
             ast.fix_missing_locations(node)
             return node
@@ -228,7 +198,7 @@ class T(ast.NodeTransformer):
         return node
 c  = T().visit(new_code)
 code = compile(new_code, 'new.py','exec')
-pretty.parseprint(new_code)
+#pretty.parseprint(new_code)
 import unparser
 import sys
 unparser.Unparser(new_code, sys.stdout)
